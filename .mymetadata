@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project-module
+  type="WEB"
+  name="SFLibraryRestletService"
+  id="myeclipse.1354936489243"
+  context-root="/SFLibraryService"
+  j2ee-spec="6.0"
+  archive="SFLibraryRestletService.war">
+  <attributes>
+    <attribute name="webrootdir" value="WebRoot" />
+  </attributes>
+</project-module>
+
