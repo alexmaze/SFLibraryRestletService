@@ -1,12 +1,15 @@
 package com.successfactors.library.rest.model;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
-@SuppressWarnings("serial")
+@SuppressWarnings({ "rawtypes", "unchecked", "serial" })
 @Entity
 @Table(name="sl_user")
 public class SLUser implements Serializable {
@@ -47,6 +50,31 @@ public class SLUser implements Serializable {
 	}
 	public void setUserDepartment(String userDepartment) {
 		this.userDepartment = userDepartment;
+	}
+	
+	@Transient
+	public void parseMap(Map mapInfo) {
+
+		this.setUserName(mapInfo.containsKey("userName")?(String)mapInfo.get("userName"):"");
+		this.setUserEmail(mapInfo.containsKey("userEmail")?(String)mapInfo.get("userEmail"):"");
+		this.setUserPassword(mapInfo.containsKey("userPassword")?(String)mapInfo.get("userPassword"):"");
+		this.setUserType(mapInfo.containsKey("userType")?(String)mapInfo.get("userType"):"");
+		this.setUserDepartment(mapInfo.containsKey("userDepartment")?(String)mapInfo.get("userDepartment"):"");
+		
+	}
+	
+	@Transient
+	public Map toMap() {
+
+		Map returnInfo = new HashMap();
+
+		returnInfo.put("userName", userName);
+		returnInfo.put("userEmail", userEmail);
+		returnInfo.put("userPassword", userPassword);
+		returnInfo.put("userType", userType);
+		returnInfo.put("userDepartment", userDepartment);
+		
+		return returnInfo;
 	}
 	
 }

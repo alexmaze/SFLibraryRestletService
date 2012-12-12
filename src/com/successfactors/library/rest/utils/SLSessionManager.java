@@ -17,7 +17,9 @@ public class SLSessionManager {
 			KEY_COUNT = 0;
 		}
 		
-		USER_SESSION_MAP.put(sessionKey, user);
+		if (!USER_SESSION_MAP.containsKey(sessionKey)) {
+			USER_SESSION_MAP.put(sessionKey, user);
+		}
 		
 		return sessionKey;
 	}

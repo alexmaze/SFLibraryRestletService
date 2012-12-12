@@ -2,12 +2,15 @@ package com.successfactors.library.rest.model;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
-@SuppressWarnings("serial")
+@SuppressWarnings({ "rawtypes", "unchecked", "serial" })
 @Entity
 @Table(name="sl_recommend_history")
 public class SLRecommendHistory implements Serializable {
@@ -67,6 +70,34 @@ public class SLRecommendHistory implements Serializable {
 
 	public void setRecDate(Date recDate) {
 		this.recDate = recDate;
+	}
+	
+	@Transient
+	public void parseMap(Map mapInfo) {
+
+		this.setHistoryId(mapInfo.containsKey("historyId")?(Integer)mapInfo.get("historyId"):null);
+		this.setBookName(mapInfo.containsKey("bookName")?(String)mapInfo.get("bookName"):"");
+		this.setBookISBN(mapInfo.containsKey("bookISBN")?(String)mapInfo.get("bookISBN"):"");
+		
+		this.setUserName(mapInfo.containsKey("userName")?(String)mapInfo.get("userName"):"");
+		this.setUserEmail(mapInfo.containsKey("userEmail")?(String)mapInfo.get("userEmail"):"");
+		this.setRecDate(mapInfo.containsKey("recDate")?(Date)mapInfo.get("recDate"):null);
+		
+	}
+	
+	@Transient
+	public Map toMap() {
+		
+		Map returnInfo = new HashMap();
+
+		returnInfo.put("historyId", historyId);
+		returnInfo.put("bookName", bookName);
+		returnInfo.put("bookISBN", bookISBN);
+		returnInfo.put("userName", userName);
+		returnInfo.put("userEmail", userEmail);
+		returnInfo.put("recDate", recDate);
+		
+		return returnInfo;
 	}
 	
 }

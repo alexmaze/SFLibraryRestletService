@@ -15,6 +15,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 
+import org.json.JSONException;
 import org.restlet.ext.json.JsonRepresentation;
 import org.restlet.representation.Representation;
 import org.stringtree.json.JSONReader;
@@ -31,6 +32,8 @@ import com.successfactors.library.rest.model.SLBorrow;
 import com.successfactors.library.rest.model.SLOrder;
 import com.successfactors.library.rest.utils.BookSearchType;
 import com.successfactors.library.rest.utils.MyTools;
+import com.successfactors.library.rest.utils.RestCallInfo;
+import com.successfactors.library.rest.utils.RestCallInfo.RestCallStatus;
 
 @Path("book")
 public class BookResource {
@@ -51,6 +54,12 @@ public class BookResource {
 	public Representation getBookByISBN(@PathParam("bookISBN") String bookISBN) {
 		SLBook book = dao.queryByISBN(bookISBN);
 		JsonRepresentation ret = new JsonRepresentation(book);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return ret;
 	}
 
@@ -72,6 +81,12 @@ public class BookResource {
 			bookPage.setTotalPageNum((int) totalNum / itemsPerPage + 1);
 		}
 		JsonRepresentation ret = new JsonRepresentation(bookPage);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return ret;
 	}
 	
@@ -89,6 +104,12 @@ public class BookResource {
 		page.setTotalPageNum(1);
 		
 		JsonRepresentation retRep = new JsonRepresentation(page);
+		try {
+			retRep.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return retRep;
 	}
 	
@@ -113,6 +134,12 @@ public class BookResource {
 		page.setTotalPageNum(1);
 		
 		JsonRepresentation retRep = new JsonRepresentation(page);
+		try {
+			retRep.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return retRep;
 	}
 	
@@ -136,6 +163,12 @@ public class BookResource {
 			bookPage.setTotalPageNum((int) totalNum / itemsPerPage + 1);
 		}
 		JsonRepresentation ret = new JsonRepresentation(bookPage);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return ret;
 	}
 	
@@ -218,6 +251,12 @@ public class BookResource {
 		}
 		
 		JsonRepresentation ret = new JsonRepresentation(retBook);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return ret;
 	}
 
@@ -242,25 +281,31 @@ public class BookResource {
 		}
 
 		JsonRepresentation retRep = new JsonRepresentation(ret);
+		try {
+			retRep.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 		return retRep;
 	}
 	// ----------------------------------------- Waiting -----------------------------------------------
 
-	public SLBook addBook(SLBook newBook) {
-		if (dao.insertBook(newBook)) {
-			return newBook;
-		} else {
-			return null;
-		}
-	}
-
-	public boolean deleteBook(String bookISBN) {
-		SLBook book = new SLBook();
-		book.setBookISBN(bookISBN);
-		return dao.deleteBook(book);
-	}
-
-	public boolean updateBook(SLBook updateBook) {
-		return dao.updateBook(updateBook);
-	}
+//	public SLBook addBook(SLBook newBook) {
+//		if (dao.insertBook(newBook)) {
+//			return newBook;
+//		} else {
+//			return null;
+//		}
+//	}
+//
+//	public boolean deleteBook(String bookISBN) {
+//		SLBook book = new SLBook();
+//		book.setBookISBN(bookISBN);
+//		return dao.deleteBook(book);
+//	}
+//
+//	public boolean updateBook(SLBook updateBook) {
+//		return dao.updateBook(updateBook);
+//	}
 }

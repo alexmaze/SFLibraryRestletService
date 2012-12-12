@@ -2,13 +2,17 @@ package com.successfactors.library.rest.model;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 
-@SuppressWarnings("serial")
+import com.successfactors.library.rest.utils.MyTools;
+
+@SuppressWarnings({ "rawtypes", "unchecked", "serial" })
 @Entity
 @Table(name="sl_order")
 public class SLOrder implements Serializable {
@@ -68,6 +72,42 @@ public class SLOrder implements Serializable {
 	}
 	public void setTheUser(SLUser theUser) {
 		this.theUser = theUser;
+	}
+	
+	@Transient
+	public void parseMap(Map mapInfo) {
+
+		this.setOrderId(mapInfo.containsKey("orderId")?(Integer)mapInfo.get("orderId"):null);
+		this.setUserEmail(mapInfo.containsKey("userEmail")?(String)mapInfo.get("userEmail"):"");
+		this.setBookISBN(mapInfo.containsKey("bookISBN")?(String)mapInfo.get("bookISBN"):"");
+		this.setOrderDate(mapInfo.containsKey("orderDate")?(Date)mapInfo.get("orderDate"):null);
+		this.setStatus(mapInfo.containsKey("status")?(String)mapInfo.get("status"):"");
+		
+	}
+	
+	@Transient
+	public Map toMap() {
+
+		Map returnInfo = new HashMap();
+		
+		returnInfo.put("icon", "reports.png");
+		returnInfo.put("orderId", orderId);
+		returnInfo.put("userEmail", userEmail);
+		returnInfo.put("bookISBN", bookISBN);
+		returnInfo.put("bookISBN", bookISBN);
+		returnInfo.put("orderDate", MyTools.formatDateTime(orderDate));
+		returnInfo.put("status", status);
+		
+		//------------------------------------------------------
+		if (theUser != null) {
+			returnInfo.put("userName", theUser.getUserName());
+		}
+		if (theBook != null) {
+			returnInfo.put("bookName", theBook.getBookName());
+			returnInfo.put("bookPicUrl", theBook.getBookPicUrl());
+		}
+		
+		return returnInfo;
 	}
 	
 }

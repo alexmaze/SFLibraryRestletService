@@ -2,12 +2,15 @@ package com.successfactors.library.rest.model;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
-@SuppressWarnings("serial")
+@SuppressWarnings({ "rawtypes", "unchecked", "serial" })
 @Entity
 @Table(name="sl_recommended_book")
 public class SLRecommendedBook implements Serializable {
@@ -136,4 +139,53 @@ public class SLRecommendedBook implements Serializable {
 		this.countPrice = countPrice;
 	}
 	
+	@Transient
+	public void parseMap(Map mapInfo) {
+		
+		this.setBookName(mapInfo.containsKey("bookName")?(String)mapInfo.get("bookName"):"");
+		this.setBookAuthor(mapInfo.containsKey("bookAuthor")?(String)mapInfo.get("bookAuthor"):"");
+		this.setBookISBN(mapInfo.containsKey("bookISBN")?(String)mapInfo.get("bookISBN"):"");
+		this.setBookPublisher(mapInfo.containsKey("bookPublisher")?(String)mapInfo.get("bookPublisher"):"");
+		this.setBookPublishDate(mapInfo.containsKey("bookPublishDate")?(Date)mapInfo.get("bookPublishDate"):null);
+		this.setBookLanguage(mapInfo.containsKey("bookLanguage")?(String)mapInfo.get("bookLanguage"):"");
+		this.setBookPrice(mapInfo.containsKey("bookPrice")?(Double)mapInfo.get("bookPrice"):0.0);
+		this.setBookClass(mapInfo.containsKey("bookClass")?(String)mapInfo.get("bookClass"):"");
+		this.setBookContributor(mapInfo.containsKey("bookContributor")?(String)mapInfo.get("bookContributor"):"");
+		this.setBookIntro(mapInfo.containsKey("bookIntro")?(String)mapInfo.get("bookIntro"):"");
+		this.setBookPicUrl(mapInfo.containsKey("bookPicUrl")?(String)mapInfo.get("bookPicUrl"):"");
+		
+		this.setRecUserName(mapInfo.containsKey("recUserName")?(String)mapInfo.get("recUserName"):"");
+		this.setRecUserEmail(mapInfo.containsKey("recUserEmail")?(String)mapInfo.get("recUserEmail"):"");
+		this.setRecStatus(mapInfo.containsKey("recStatus")?(String)mapInfo.get("recStatus"):"");
+		this.setRecDate(mapInfo.containsKey("recDate")?(Date)mapInfo.get("recDate"):null);
+		this.setRecRate(mapInfo.containsKey("recRate")?(Integer)mapInfo.get("recRate"):0);
+		this.setCountPrice(mapInfo.containsKey("countPrice")?(Double)mapInfo.get("countPrice"):0.0);
+		
+	}
+	
+	@Transient
+	public Map toMap() {
+		
+		Map returnInfo = new HashMap();
+		
+		returnInfo.put("bookName", bookName);
+		returnInfo.put("bookAuthor", bookAuthor);
+		returnInfo.put("bookISBN", bookISBN);
+		returnInfo.put("bookPublisher", bookPublisher);
+		returnInfo.put("bookPublishDate", bookPublishDate);
+		returnInfo.put("bookLanguage", bookLanguage);
+		returnInfo.put("bookPrice", bookPrice);
+		returnInfo.put("bookClass", bookClass);
+		returnInfo.put("bookContributor", bookContributor);
+		returnInfo.put("bookPicUrl", bookPicUrl);
+		
+		returnInfo.put("recUserName", recUserName);
+		returnInfo.put("recUserEmail", recUserEmail);
+		returnInfo.put("recStatus", recStatus);
+		returnInfo.put("recDate", recDate);
+		returnInfo.put("recRate", recRate);
+		returnInfo.put("countPrice", countPrice);
+		
+		return returnInfo;
+	}
 }
