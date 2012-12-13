@@ -1,5 +1,263 @@
 package com.successfactors.library.rest.resource;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+
+import org.restlet.ext.json.JsonRepresentation;
+import org.restlet.representation.Representation;
+import org.stringtree.json.JSONReader;
+import org.stringtree.json.JSONValidatingReader;
+
+import com.successfactors.library.rest.dao.SLBookDao;
+import com.successfactors.library.rest.dao.SLBorrowDao;
+import com.successfactors.library.rest.dao.SLOrderDao;
+import com.successfactors.library.rest.dao.SLUserDao;
+import com.successfactors.library.rest.model.OrderPage;
+import com.successfactors.library.rest.model.SLOrder;
+import com.successfactors.library.rest.model.SLUser;
+import com.successfactors.library.rest.utils.OrderSearchType;
+import com.successfactors.library.rest.utils.OrderStatusType;
+import com.successfactors.library.rest.utils.RestCallInfo;
+import com.successfactors.library.rest.utils.RestCallInfo.RestCallErrorCode;
+import com.successfactors.library.rest.utils.RestCallInfo.RestCallStatus;
+import com.successfactors.library.rest.utils.SLEmailUtil;
+import com.successfactors.library.rest.utils.SLSessionManager;
+
+@SuppressWarnings({"rawtypes", "unchecked"})
+@Path("order")
 public class OrderResource {
 
+	public static final String ORDER_INQUEUE = "排队中";
+	public static final String ORDER_CANCElED = "已取消";
+	public static final String ORDER_BORROWED = "已借到";
+
+	protected SLOrderDao orderDao = SLOrderDao.getDao();
+	protected SLBookDao bookDao = SLBookDao.getDao();
+	protected SLUserDao userDao = SLUserDao.getDao();
+	protected SLBorrowDao borrowDao = SLBorrowDao.getDao();
+	
+	private SLEmailUtil emailUtil = new SLEmailUtil();
+	
+	
+	/**
+	 * 预订图书
+	 * */
+	@PUT
+	@Path("orderbook")
+	@Produces("application/json")
+	public Representation orderBook(Representation entity) {
+		
+		
+		JSONReader reader = new JSONValidatingReader();
+		HashMap result = null;
+		
+		HashMap returnInfo = new HashMap();
+		
+		try {
+			result = (HashMap) reader.read(entity.getText());
+		} catch (IOException e) {
+			e.printStackTrace();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		if (result == null || !result.containsKey("sessionKey") || !result.containsKey("bookISBN")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		String sessionKey = result.get("sessionKey").toString();
+		String bookISBN = result.get("bookISBN").toString();
+		
+		SLUser slUser = SLSessionManager.getSession(sessionKey);
+		if (slUser == null) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.need_login);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		// 如果还有的借，不能预订
+		if (bookDao.queryByISBN(bookISBN).getBookAvailableQuantity() > 0) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.can_not_order_while_you_can_borrow);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		// 先检查是否已借！
+		if (borrowDao.isUserBookBorrowed(slUser.getUserEmail(), bookISBN)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.already_borrowed);
+			return new JsonRepresentation(returnInfo);
+		}
+		// 再检查是否已预订！
+		if (orderDao.isUserBookOrdered(slUser.getUserEmail(), bookISBN)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.already_ordered);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		// 插入记录
+		SLOrder slOrder = new SLOrder();
+		Calendar c = Calendar.getInstance();
+		Date orderDate = c.getTime();
+		slOrder.setUserEmail(slUser.getUserEmail());
+		slOrder.setBookISBN(bookISBN);
+		slOrder.setOrderDate(orderDate);
+		slOrder.setStatus(ORDER_INQUEUE);
+		
+		if (!orderDao.orderBook(slOrder)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		// 发送邮件
+		slOrder.setTheBook(bookDao.queryByISBN(bookISBN));
+		slOrder.setTheUser(userDao.getSLUserByEmail(slOrder.getUserEmail()));
+		emailUtil.sendOrderSuccessEmail(slOrder);
+
+		returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+		returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		return new JsonRepresentation(returnInfo);
+	}
+
+
+	/**
+	 * 取消预订
+	 * */
+	@PUT
+	@Path("cancelorder")
+	@Produces("application/json")
+	public Representation cancelOrder(Representation entity) {
+		
+		JSONReader reader = new JSONValidatingReader();
+		HashMap result = null;
+		
+		HashMap returnInfo = new HashMap();
+		
+		try {
+			result = (HashMap) reader.read(entity.getText());
+		} catch (IOException e) {
+			e.printStackTrace();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		if (result == null || !result.containsKey("sessionKey") || !result.containsKey("orderId")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		String sessionKey = result.get("sessionKey").toString();
+		int orderId = Integer.parseInt(result.get("orderId").toString());
+		
+		SLUser slUser = SLSessionManager.getSession(sessionKey);
+		if (slUser == null) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.need_login);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		SLOrder slOrder = orderDao.getSLOrderByOrderId(orderId);
+		
+		if (!slOrder.getUserEmail().equals(slUser.getUserEmail()) && !slUser.getUserType().equals("管理员")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.can_not_modify_other_person);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		slOrder.setStatus(ORDER_CANCElED);
+		
+		if (!orderDao.updateOrder(slOrder)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
+
+		returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+		returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		return new JsonRepresentation(returnInfo);
+	}
+	
+	
+	
+	// ----------------------------------------- Waiting -----------------------------------------------
+
+	/**
+	 * 获取预订信息
+	 * */
+	public SLOrder getOrderInfo(int orderId) {
+		SLOrder slOrder = orderDao.getSLOrderByOrderId(orderId);
+		slOrder.setTheBook(bookDao.queryByISBN(slOrder.getBookISBN()));
+		slOrder.setTheUser(userDao.getSLUserByEmail(slOrder.getUserEmail()));
+		return slOrder;
+	}
+
+	/**
+	 * （内部）搜索
+	 * */
+	private OrderPage searchOrderList(String firstType, String firstValue,
+			String secondType, String secondValue, int itemsPerPage,
+			int pageNum, boolean isLike) {
+		ArrayList<SLOrder> listOrders = (ArrayList<SLOrder>) orderDao
+				.searchOrderList(firstType, firstValue, secondType,
+						secondValue, itemsPerPage, pageNum, isLike);
+		OrderPage orderPage = new OrderPage(itemsPerPage, pageNum);
+		orderPage.setTheOrders(listOrders);
+		long totalNum = orderDao.selectCount(firstType, firstValue, secondType,
+				secondValue, isLike);
+		if (totalNum % itemsPerPage == 0) {
+			orderPage.setTotalPageNum((int) totalNum / itemsPerPage);
+		} else {
+			orderPage.setTotalPageNum((int) totalNum / itemsPerPage + 1);
+		}
+		return orderPage;
+	}
+
+	/**
+	 * 获取某种状态下的，某用户的所有预定信息
+	 * 
+	 * @param statusType
+	 *            预定状态
+	 * @param userEmail
+	 *            用户邮箱地址，注：当userEmail==null时，对所有用户
+	 * @param itemsPerPage
+	 * @param pageNum
+	 */
+	public OrderPage getOrderList(OrderStatusType statusType, String userEmail,
+			int itemsPerPage, int pageNum) {
+		return searchOrderList("status", OrderStatusType.toString(statusType),
+				"userEmail", userEmail, itemsPerPage, pageNum, false);
+	}
+
+	/**
+	 * 在某种状态下的预定信息中，所有用户中，搜索
+	 * 
+	 * @param statusType
+	 *            预定状态
+	 * @param searchType
+	 *            搜索类型
+	 * @param searchValue
+	 *            关键词
+	 * @param itemsPerPage
+	 * @param pageNum
+	 * */
+	public OrderPage searchOrderList(OrderStatusType statusType,
+			OrderSearchType searchType, String searchValue, int itemsPerPage,
+			int pageNum) {
+		return searchOrderList("status", OrderStatusType.toString(statusType),
+				OrderSearchType.toString(searchType), searchValue,
+				itemsPerPage, pageNum, true);
+	}
+
+	
 }

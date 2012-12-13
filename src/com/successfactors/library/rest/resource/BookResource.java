@@ -33,8 +33,10 @@ import com.successfactors.library.rest.model.SLOrder;
 import com.successfactors.library.rest.utils.BookSearchType;
 import com.successfactors.library.rest.utils.MyTools;
 import com.successfactors.library.rest.utils.RestCallInfo;
+import com.successfactors.library.rest.utils.RestCallInfo.RestCallErrorCode;
 import com.successfactors.library.rest.utils.RestCallInfo.RestCallStatus;
 
+@SuppressWarnings({"rawtypes", "unchecked"})
 @Path("book")
 public class BookResource {
 	
@@ -52,11 +54,19 @@ public class BookResource {
 	@Path("getbookbyisbn/{bookISBN}")
 	@Produces("application/json")
 	public Representation getBookByISBN(@PathParam("bookISBN") String bookISBN) {
+		
 		SLBook book = dao.queryByISBN(bookISBN);
+		if (book == null) {
+			HashMap returnInfo = new HashMap();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_such_book);
+			return new JsonRepresentation(returnInfo);
+		}
+		
 		JsonRepresentation ret = new JsonRepresentation(book);
 		try {
 			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -83,7 +93,7 @@ public class BookResource {
 		JsonRepresentation ret = new JsonRepresentation(bookPage);
 		try {
 			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -106,7 +116,7 @@ public class BookResource {
 		JsonRepresentation retRep = new JsonRepresentation(page);
 		try {
 			retRep.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -136,7 +146,7 @@ public class BookResource {
 		JsonRepresentation retRep = new JsonRepresentation(page);
 		try {
 			retRep.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -165,7 +175,7 @@ public class BookResource {
 		JsonRepresentation ret = new JsonRepresentation(bookPage);
 		try {
 			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -178,7 +188,6 @@ public class BookResource {
 	@GET
 	@Path("getdoubanbookbyisbn/{bookISBN}")
 	@Produces("application/json")
-	@SuppressWarnings("rawtypes")
 	public Representation getBookByDoubanAPI(@PathParam("bookISBN") String bookISBN) {
 		String strUrl = DOUBAN_API_URL + bookISBN + DOUBAN_API_KEY;
 		BufferedReader in = null;
@@ -253,7 +262,7 @@ public class BookResource {
 		JsonRepresentation ret = new JsonRepresentation(retBook);
 		try {
 			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -283,7 +292,7 @@ public class BookResource {
 		JsonRepresentation retRep = new JsonRepresentation(ret);
 		try {
 			retRep.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
-			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, "");
+			retRep.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}

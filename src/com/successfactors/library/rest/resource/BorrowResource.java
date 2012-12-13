@@ -7,9 +7,14 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
+import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 
+import org.json.JSONException;
+import org.restlet.ext.json.JsonRepresentation;
 import org.restlet.representation.Representation;
 import org.stringtree.json.JSONReader;
 import org.stringtree.json.JSONValidatingReader;
@@ -25,10 +30,13 @@ import com.successfactors.library.rest.model.SLOrder;
 import com.successfactors.library.rest.model.SLUser;
 import com.successfactors.library.rest.utils.BorrowSearchType;
 import com.successfactors.library.rest.utils.BorrowStatusType;
+import com.successfactors.library.rest.utils.RestCallInfo;
+import com.successfactors.library.rest.utils.RestCallInfo.RestCallErrorCode;
+import com.successfactors.library.rest.utils.RestCallInfo.RestCallStatus;
 import com.successfactors.library.rest.utils.SLEmailUtil;
 import com.successfactors.library.rest.utils.SLSessionManager;
 
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 @Path("borrow")
 public class BorrowResource {
 
@@ -44,114 +52,215 @@ public class BorrowResource {
 	 * */
 	@PUT
 	@Path("borrowbook")
-	public boolean borrowBook(Representation entity) {
+	@Produces("application/json")
+	public Representation borrowBook(Representation entity) {
 		
 		JSONReader reader = new JSONValidatingReader();
 		HashMap result = null;
+		
+		HashMap returnInfo = new HashMap();
 		
 		try {
 			result = (HashMap) reader.read(entity.getText());
 		} catch (IOException e) {
 			e.printStackTrace();
-			return false;
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
 		}
 		
 		if (result == null || !result.containsKey("sessionKey") || !result.containsKey("bookISBN")) {
-			return false;
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
 		}
 		String sessionKey = result.get("sessionKey").toString();
 		String bookISBN = result.get("bookISBN").toString();
 		
 		SLUser slUser = SLSessionManager.getSession(sessionKey);
 		if (slUser == null) {
-			return false;
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.need_login);
+			return new JsonRepresentation(returnInfo);
 		}
 		
-		return borrowBook(slUser.getUserEmail(), bookISBN);
-	}
-	// ----------------------------------------- Waiting -----------------------------------------------
-	
-	/**
-	 * （内部）借阅
-	 * */
-	private boolean borrowBook(String userEmail, String bookISBN) {
-
-		// 先检查是否已借！
-		if (borrowDao.isUserBookBorrowed(userEmail, bookISBN)) {
-			return false;
+		switch (borrowBook(slUser.getUserEmail(), bookISBN)) {
+			case already_borrowed:
+				returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+				returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.already_borrowed);
+				break;
+			case no_available_left:
+				returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+				returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_available_left);
+				break;
+			case no_error:
+				returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+				returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+				break;
+			default: 
+				returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+				returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.unknown_error);
 		}
 		
-		SLBook slBook = bookDao.queryByISBN(bookISBN);
-		if (slBook.getBookAvailableQuantity() > 0) {
-			slBook.setBookAvailableQuantity(slBook.getBookAvailableQuantity() - 1);
-			SLBorrow slBorrow = initBorrow(userEmail,
-					slBook.getBookISBN());
-			borrowDao.save(slBorrow);
-			bookDao.updateBook(slBook);
-			slBorrow.setTheBook(bookDao.queryByISBN(slBorrow.getBookISBN()));
-			slBorrow.setTheUser(userDao.getSLUserByEmail(slBorrow
-					.getUserEmail()));
-			emailUtil.sendBorrowSuccessEmail(slBorrow);
-			
-			return true;
-		} else {
-			return false;
-		}
+		return new JsonRepresentation(returnInfo);
 	}
 
 	/**
-	 * 还书
+	 * 还书, 只有管理员才有权限！
 	 * */
-	public boolean returnBook(int borrowId) {
+	@PUT
+	@Path("returnbook")
+	@Produces("application/json")
+	public Representation returnBook(Representation entity) {
+		
+		JSONReader reader = new JSONValidatingReader();
+		HashMap result = null;
+		
+		HashMap returnInfo = new HashMap();
+		
+		try {
+			result = (HashMap) reader.read(entity.getText());
+		} catch (IOException e) {
+			e.printStackTrace();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		if (result == null || !result.containsKey("sessionKey") || !result.containsKey("borrowId")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		String sessionKey = result.get("sessionKey").toString();
+		int borrowId = Integer.parseInt(result.get("borrowId").toString());
+		
+		SLUser user = SLSessionManager.getSession(sessionKey);
+		if (!user.getUserType().equals("管理员")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.need_admin_authority);
+			return new JsonRepresentation(returnInfo);
+		} 
+		
+		
 		SLBorrow slBorrow = borrowDao.getBorrowById(borrowId);
 		slBorrow.setStatus("已归还");
 		slBorrow.setReturnDate(new Date());
-		borrowDao.update(slBorrow);
+		
+		if (!borrowDao.update(slBorrow)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
 		SLBook slBook = bookDao.queryByISBN(slBorrow.getBookISBN());
 		slBook.setBookAvailableQuantity(slBook.getBookAvailableQuantity() + 1);
 		if (!slBorrow.isInStore()) {
 			slBook.setBookInStoreQuantity(slBook.getBookInStoreQuantity() + 1);
 		}
-		bookDao.updateBook(slBook);
+		if (!bookDao.updateBook(slBook)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
 		SLOrder slOrder = orderDao.getEarlistOrder(slBook.getBookISBN());
 		if (slOrder != null) {
 			// 自动为最早预订的用户借阅
-			if (borrowBook(slOrder.getUserEmail(), slBook.getBookISBN())) {
+			if (borrowBook(slOrder.getUserEmail(), slBook.getBookISBN()) == RestCallErrorCode.no_error) {
 				slOrder.setStatus("已借到");
 				orderDao.updateOrder(slOrder);
 			}
 		}
-		
-		return true;
-	}
 
-	/**
-	 * 借阅图书丢失登记
-	 * */
-	public boolean lostBook(int borrowId) {
-		SLBorrow slBorrow = borrowDao.getBorrowById(borrowId);
-		slBorrow.setStatus("已丢失");
-		borrowDao.save(slBorrow);
-		SLBook slBook = bookDao.queryByISBN(slBorrow
-				.getBookISBN());
-		slBook.setBookTotalQuantity(slBook.getBookTotalQuantity() - 1);
-		slBook.setBookAvailableQuantity(slBook.getBookAvailableQuantity() - 1);
-		slBook.setBookInStoreQuantity(slBook.getBookInStoreQuantity() - 1);
-		bookDao.updateBook(slBook);
-		
-		return true;
+		returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+		returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		return new JsonRepresentation(returnInfo);
 	}
-
+	
 	/**
 	 * 获取借阅信息
 	 * */
-	public SLBorrow getBorrowInfo(int borrowId) {
+	@GET
+	@Path("getborrowinfo/{borrowId}")
+	@Produces("application/json")
+	public Representation getBorrowInfo(@PathParam("borrowId") int borrowId) {
 		SLBorrow slBorrow = borrowDao.getBorrowById(borrowId);
+		if (slBorrow == null) {
+			HashMap returnInfo = new HashMap();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_such_borrow);
+			return new JsonRepresentation(returnInfo);
+		}
 		SLBook slBook = bookDao.queryByISBN(slBorrow.getBookISBN());
 		SLUser slUser = userDao.getSLUserByEmail(slBorrow.getUserEmail());
 		slBorrow.setTheBook(slBook);
 		slBorrow.setTheUser(slUser);
-		return slBorrow;
+		
+		JsonRepresentation ret = new JsonRepresentation(slBorrow);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		return ret;
+	}
+	
+	/**
+	 * 图书出库, 只有管理员由此权限
+	 * */
+	@PUT
+	@Path("outstorebook")
+	@Produces("application/json")
+	public Representation outStoreBook(Representation entity) {
+		
+		JSONReader reader = new JSONValidatingReader();
+		HashMap result = null;
+		
+		HashMap returnInfo = new HashMap();
+		
+		try {
+			result = (HashMap) reader.read(entity.getText());
+		} catch (IOException e) {
+			e.printStackTrace();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		if (result == null || !result.containsKey("sessionKey") || !result.containsKey("borrowId")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		String sessionKey = result.get("sessionKey").toString();
+		int borrowId = Integer.parseInt(result.get("borrowId").toString());
+		
+		SLUser user = SLSessionManager.getSession(sessionKey);
+		if (!user.getUserType().equals("管理员")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.need_admin_authority);
+			return new JsonRepresentation(returnInfo);
+		} 
+		
+		SLBorrow slBorrow = borrowDao.getBorrowById(borrowId);
+		slBorrow.setInStore(false);
+		if (!borrowDao.update(slBorrow)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		SLBook slBook = bookDao.queryByISBN(slBorrow.getBookISBN());
+		slBook.setBookInStoreQuantity(slBook.getBookInStoreQuantity() - 1);
+		if (!bookDao.updateBook(slBook)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+		returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		return new JsonRepresentation(returnInfo);
 	}
 
 	/**
@@ -164,8 +273,15 @@ public class BorrowResource {
 	 * @param itemsPerPage
 	 * @param pageNum
 	 */
-	public BorrowPage getBorrowList(BorrowStatusType statusType,
-			String userEmail, int itemsPerPage, int pageNum) {
+	@GET
+	@Path("getborrowlistpage/{statusType}/{userEmail}/{itemsPerPage}/{pageNum}")
+	@Produces("application/json")
+	public Representation getBorrowList(
+			@PathParam("statusType") BorrowStatusType statusType,
+			@PathParam("userEmail") String userEmail,
+			@PathParam("itemsPerPage") int itemsPerPage,
+			@PathParam("pageNum") int pageNum) {
+		
 		BorrowPage page = null;
 		
 		List<SLBorrow> result = null;
@@ -188,9 +304,16 @@ public class BorrowResource {
 		page.setItemsNumPerPage(itemsPerPage);
 		page.setPageNum(pageNum);
 		
-		return page;
+		JsonRepresentation ret = new JsonRepresentation(page);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		return ret;	
 	}
-
+	
 	/**
 	 * 在某种状态下的借阅信息中，所有用户中，搜索
 	 * 
@@ -203,9 +326,16 @@ public class BorrowResource {
 	 * @param itemsPerPage
 	 * @param pageNum
 	 * */
-	public BorrowPage searchBorrowList(BorrowStatusType statusType,
-			BorrowSearchType searchType, String searchValue, int itemsPerPage,
-			int pageNum) {
+	@GET
+	@Path("searchborrowlistpage/{statusType}/{searchType}/{searchValue}/{itemsPerPage}/{pageNum}")
+	@Produces("application/json")
+	public Representation searchBorrowList(
+			@PathParam("statusType") BorrowStatusType statusType,
+			@PathParam("searchType") BorrowSearchType searchType,
+			@PathParam("searchValue") String searchValue,
+			@PathParam("itemsPerPage") int itemsPerPage,
+			@PathParam("pageNum") int pageNum) {
+		
 		BorrowPage page = borrowDao.searchBorrowList(statusType,
 				searchType, searchValue, itemsPerPage, pageNum);
 		List<SLBorrow> result = page.getTheBorrows();
@@ -221,15 +351,26 @@ public class BorrowResource {
 		page.setItemsNumPerPage(itemsPerPage);
 		page.setPageNum(pageNum);
 		
-		return page;
+		JsonRepresentation ret = new JsonRepresentation(page);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		return ret;	
 	}
 
 	/**
 	 * 获取所有超期借阅记录
 	 * */
-	public ArrayList<SLBorrow> getOverdueBorrowList() {
+	@GET
+	@Path("getoverdueborrowlistpage")
+	@Produces("application/json")
+	public Representation getOverdueBorrowList() {
+		
 		BorrowStatusType statusType = BorrowStatusType.parse("已超期");
-		List<SLBorrow> result = borrowDao.searchBorrowList(statusType);
+		ArrayList<SLBorrow> result = (ArrayList<SLBorrow>) borrowDao.searchBorrowList(statusType);
 
 		for (int i = 0; i < result.size(); i++) {
 			SLBorrow slBorrow = result.get(i);
@@ -238,21 +379,47 @@ public class BorrowResource {
 					.getUserEmail()));
 			result.set(i, slBorrow);
 		}
-		return (ArrayList<SLBorrow>) result;
-	}
-
-	/**
-	 * 图书出库
-	 * */
-	public boolean outStoreBook(int borrowId) {
-		SLBorrow slBorrow = borrowDao.getBorrowById(borrowId);
-		slBorrow.setInStore(false);
-		borrowDao.update(slBorrow);
-		SLBook slBook = bookDao.queryByISBN(slBorrow.getBookISBN());
-		slBook.setBookInStoreQuantity(slBook.getBookInStoreQuantity() - 1);
-		bookDao.updateBook(slBook);
 		
-		return true;
+		BorrowPage page = new BorrowPage();
+		page.setTheBorrows(result);
+		
+		JsonRepresentation ret = new JsonRepresentation(page);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		return ret;	
+	}
+	
+	// ----------------------------------------- Waiting -----------------------------------------------
+	/**
+	 * （内部）借阅
+	 * */
+	private RestCallErrorCode borrowBook(String userEmail, String bookISBN) {
+
+		// 先检查是否已借！
+		if (borrowDao.isUserBookBorrowed(userEmail, bookISBN)) {
+			return RestCallErrorCode.already_borrowed;
+		}
+		
+		SLBook slBook = bookDao.queryByISBN(bookISBN);
+		if (slBook.getBookAvailableQuantity() > 0) {
+			slBook.setBookAvailableQuantity(slBook.getBookAvailableQuantity() - 1);
+			SLBorrow slBorrow = initBorrow(userEmail,
+					slBook.getBookISBN());
+			borrowDao.save(slBorrow);
+			bookDao.updateBook(slBook);
+			slBorrow.setTheBook(bookDao.queryByISBN(slBorrow.getBookISBN()));
+			slBorrow.setTheUser(userDao.getSLUserByEmail(slBorrow
+					.getUserEmail()));
+			emailUtil.sendBorrowSuccessEmail(slBorrow);
+
+			return RestCallErrorCode.no_error;
+		} else {
+			return RestCallErrorCode.no_available_left;
+		}
 	}
 
 	/**
@@ -274,4 +441,21 @@ public class BorrowResource {
 		return newBorrow;
 	}
 
+//	/**
+//	 * 借阅图书丢失登记
+//	 * */
+//	public boolean lostBook(int borrowId) {
+//		SLBorrow slBorrow = borrowDao.getBorrowById(borrowId);
+//		slBorrow.setStatus("已丢失");
+//		borrowDao.save(slBorrow);
+//		SLBook slBook = bookDao.queryByISBN(slBorrow
+//				.getBookISBN());
+//		slBook.setBookTotalQuantity(slBook.getBookTotalQuantity() - 1);
+//		slBook.setBookAvailableQuantity(slBook.getBookAvailableQuantity() - 1);
+//		slBook.setBookInStoreQuantity(slBook.getBookInStoreQuantity() - 1);
+//		bookDao.updateBook(slBook);
+//		
+//		return true;
+//	}
+	
 }

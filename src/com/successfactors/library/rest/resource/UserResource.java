@@ -1,6 +1,7 @@
 package com.successfactors.library.rest.resource;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.ws.rs.GET;
@@ -14,8 +15,6 @@ import org.restlet.ext.json.JsonRepresentation;
 import org.restlet.representation.Representation;
 import org.stringtree.json.JSONReader;
 import org.stringtree.json.JSONValidatingReader;
-import org.stringtree.json.JSONValidatingWriter;
-import org.stringtree.json.JSONWriter;
 
 import com.successfactors.library.rest.dao.SLUserDao;
 import com.successfactors.library.rest.model.SLUser;
@@ -31,7 +30,7 @@ public class UserResource {
 	private SLUserDao slUserDao = SLUserDao.getDao();
 	
 	/**
-	 * 用户登录，成功返回SessionKey, 失败为""
+	 * 用户登录，成功返回SessionKey
 	 * */
 	@PUT
 	@Path("login")
@@ -42,7 +41,6 @@ public class UserResource {
 		
 		// 解析Json信息
 		JSONReader reader = new JSONValidatingReader();
-		JSONWriter writer = new JSONValidatingWriter();
 		Map comeInfo = null;
 		Map returnInfo = null;
 		
@@ -53,14 +51,14 @@ public class UserResource {
 			returnInfo = RestCallInfo.getInitRestCallInfo(
 					RestCallStatus.fail,
 					RestCallErrorCode.json_format_error);
-			return new JsonRepresentation(writer.write(returnInfo));
+			return new JsonRepresentation(returnInfo);
 		}
 		
 		if (comeInfo == null || !comeInfo.containsKey("email") || !comeInfo.containsKey("password")) {
 			returnInfo = RestCallInfo.getInitRestCallInfo(
 					RestCallStatus.fail,
 					RestCallErrorCode.json_format_error);
-			return new JsonRepresentation(writer.write(returnInfo));
+			return new JsonRepresentation(returnInfo);
 		}
 
 		String strEmail = comeInfo.get("email").toString();
@@ -73,7 +71,7 @@ public class UserResource {
 				returnInfo = RestCallInfo.getInitRestCallInfo(
 						RestCallStatus.fail,
 						RestCallErrorCode.need_login);
-				return new JsonRepresentation(writer.write(returnInfo));
+				return new JsonRepresentation(returnInfo);
 			} else {
 				sessionKey = SLSessionManager.newSession(slUser);
 			}
@@ -83,7 +81,7 @@ public class UserResource {
 				RestCallStatus.success,
 				null);
 		returnInfo.put("sessionKey", sessionKey);
-		return new JsonRepresentation(writer.write(returnInfo));
+		return new JsonRepresentation(returnInfo);
 	}
 	
 	/**
@@ -114,6 +112,63 @@ public class UserResource {
 		return retRep;
 	}
 
+	/**
+	 * 更新用户信息
+	 * */
+	@PUT
+	@Path("updateuserinfo")
+	@Produces("application/json")
+	public Representation saveUserInfo(Representation entity) {
+		
+		JSONReader reader = new JSONValidatingReader();
+		HashMap result = null;
+		
+		HashMap returnInfo = new HashMap();
+		
+		try {
+			result = (HashMap) reader.read(entity.getText());
+		} catch (IOException e) {
+			e.printStackTrace();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		if (result == null || !result.containsKey("sessionKey")) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.json_format_error);
+			return new JsonRepresentation(returnInfo);
+		}
+		String sessionKey = result.get("sessionKey").toString();
+		
+		SLUser slUser = SLSessionManager.getSession(sessionKey);
+		if (slUser == null) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.need_login);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+		SLUser updatedUser = new SLUser();
+		updatedUser.parseMap(result);
+		
+		if (!updatedUser.getUserEmail().equals(slUser.getUserEmail())) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.can_not_modify_other_person);
+			return new JsonRepresentation(returnInfo);
+		}
+		
+
+		if (!slUserDao.update(slUser)) {
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.db_operate_error);
+			return new JsonRepresentation(returnInfo);
+		}
+
+		returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+		returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		return new JsonRepresentation(returnInfo);
+	}
+
 	// ------------------------------------- Waiting --------------------------------------
 	
 //	/**
@@ -128,20 +183,6 @@ public class UserResource {
 //		}
 //		return null;
 //	}
-//
-//	/**
-//	 * 更新用户信息
-//	 * */
-//	public boolean saveUserInfo(SLUser slUser) {
-//		SLUser oldUser = getUserByEmail(slUser.getUserEmail());
-//		if (oldUser != null) {
-//			if (slUserDao.update(slUser)) {
-//				return true;
-//			}
-//		}
-//		return false;
-//	}
-//
 //	/**
 //	 * 根据Email删除用户记录
 //	 * */
