@@ -100,4 +100,18 @@ public class SLRecommendHistory implements Serializable {
 		return returnInfo;
 	}
 	
+	@Transient
+	public static SLRecommendHistory parse(SLRecommendedBook recBook) {
+
+		SLRecommendHistory ret = new SLRecommendHistory();
+
+		ret.setBookName(recBook.getBookName());
+		ret.setBookISBN(recBook.getBookISBN());
+		
+		ret.setUserName(recBook.getRecUserName());
+		ret.setUserEmail(recBook.getRecUserEmail());
+		ret.setRecDate(recBook.getRecDate());
+		
+		return ret;
+	}
 }

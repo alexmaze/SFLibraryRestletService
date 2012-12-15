@@ -6,10 +6,13 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 
+import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 
+import org.json.JSONException;
 import org.restlet.ext.json.JsonRepresentation;
 import org.restlet.representation.Representation;
 import org.stringtree.json.JSONReader;
@@ -188,39 +191,32 @@ public class OrderResource {
 		return new JsonRepresentation(returnInfo);
 	}
 	
-	
-	
-	// ----------------------------------------- Waiting -----------------------------------------------
-
 	/**
 	 * 获取预订信息
 	 * */
-	public SLOrder getOrderInfo(int orderId) {
+	@GET
+	@Path("getorderinfo/{orderId}")
+	@Produces("application/json")
+	public Representation getOrderInfo(@PathParam("orderId") int orderId) {
 		SLOrder slOrder = orderDao.getSLOrderByOrderId(orderId);
+		if (slOrder == null) {
+			HashMap returnInfo = new HashMap();
+			returnInfo.put(RestCallInfo.REST_STATUS, RestCallStatus.fail);
+			returnInfo.put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_such_order);
+			return new JsonRepresentation(returnInfo);
+		}
+		
 		slOrder.setTheBook(bookDao.queryByISBN(slOrder.getBookISBN()));
 		slOrder.setTheUser(userDao.getSLUserByEmail(slOrder.getUserEmail()));
-		return slOrder;
-	}
-
-	/**
-	 * （内部）搜索
-	 * */
-	private OrderPage searchOrderList(String firstType, String firstValue,
-			String secondType, String secondValue, int itemsPerPage,
-			int pageNum, boolean isLike) {
-		ArrayList<SLOrder> listOrders = (ArrayList<SLOrder>) orderDao
-				.searchOrderList(firstType, firstValue, secondType,
-						secondValue, itemsPerPage, pageNum, isLike);
-		OrderPage orderPage = new OrderPage(itemsPerPage, pageNum);
-		orderPage.setTheOrders(listOrders);
-		long totalNum = orderDao.selectCount(firstType, firstValue, secondType,
-				secondValue, isLike);
-		if (totalNum % itemsPerPage == 0) {
-			orderPage.setTotalPageNum((int) totalNum / itemsPerPage);
-		} else {
-			orderPage.setTotalPageNum((int) totalNum / itemsPerPage + 1);
+		
+		JsonRepresentation ret = new JsonRepresentation(slOrder);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		} catch (JSONException e) {
+			e.printStackTrace();
 		}
-		return orderPage;
+		return ret;
 	}
 
 	/**
@@ -233,10 +229,18 @@ public class OrderResource {
 	 * @param itemsPerPage
 	 * @param pageNum
 	 */
-	public OrderPage getOrderList(OrderStatusType statusType, String userEmail,
-			int itemsPerPage, int pageNum) {
+	@GET
+	@Path("getorderlistpage/{statusType}/{userEmail}/{itemsPerPage}/{pageNum}")
+	@Produces("application/json")
+	public Representation getOrderList(
+			@PathParam("statusType") OrderStatusType statusType,
+			@PathParam("userEmail") String userEmail,
+			@PathParam("itemsPerPage") int itemsPerPage,
+			@PathParam("pageNum") int pageNum) {
+		
 		return searchOrderList("status", OrderStatusType.toString(statusType),
 				"userEmail", userEmail, itemsPerPage, pageNum, false);
+		
 	}
 
 	/**
@@ -251,12 +255,49 @@ public class OrderResource {
 	 * @param itemsPerPage
 	 * @param pageNum
 	 * */
-	public OrderPage searchOrderList(OrderStatusType statusType,
-			OrderSearchType searchType, String searchValue, int itemsPerPage,
-			int pageNum) {
+	@GET
+	@Path("searchorderlistpage/{statusType}/{searchType}/{searchValue}/{itemsPerPage}/{pageNum}")
+	@Produces("application/json")
+	public Representation searchOrderList(
+			@PathParam("statusType") OrderStatusType statusType,
+			@PathParam("searchType") OrderSearchType searchType,
+			@PathParam("searchValue") String searchValue,
+			@PathParam("itemsPerPage") int itemsPerPage,
+			@PathParam("pageNum") int pageNum) {
+		
 		return searchOrderList("status", OrderStatusType.toString(statusType),
 				OrderSearchType.toString(searchType), searchValue,
 				itemsPerPage, pageNum, true);
+	}
+	
+	// ----------------------------------------- Waiting -----------------------------------------------
+	/**
+	 * （内部）搜索
+	 * */
+	private Representation searchOrderList(String firstType, String firstValue,
+			String secondType, String secondValue, int itemsPerPage,
+			int pageNum, boolean isLike) {
+		
+		ArrayList<SLOrder> listOrders = (ArrayList<SLOrder>) orderDao
+				.searchOrderList(firstType, firstValue, secondType,
+						secondValue, itemsPerPage, pageNum, isLike);
+		OrderPage orderPage = new OrderPage(itemsPerPage, pageNum);
+		orderPage.setTheOrders(listOrders);
+		long totalNum = orderDao.selectCount(firstType, firstValue, secondType,
+				secondValue, isLike);
+		if (totalNum % itemsPerPage == 0) {
+			orderPage.setTotalPageNum((int) totalNum / itemsPerPage);
+		} else {
+			orderPage.setTotalPageNum((int) totalNum / itemsPerPage + 1);
+		}
+		JsonRepresentation ret = new JsonRepresentation(orderPage);
+		try {
+			ret.getJsonObject().put(RestCallInfo.REST_STATUS, RestCallStatus.success);
+			ret.getJsonObject().put(RestCallInfo.REST_ERROR_CODE, RestCallErrorCode.no_error);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		return ret;	
 	}
 
 	

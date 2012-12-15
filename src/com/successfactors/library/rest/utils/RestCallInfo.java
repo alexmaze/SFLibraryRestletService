@@ -23,6 +23,7 @@ public class RestCallInfo {
 		already_borrowed,
 		already_ordered,
 		already_recommended,
+		already_instore,
 
 		need_login,
 		need_admin_authority,
@@ -35,6 +36,8 @@ public class RestCallInfo {
 		can_not_modify_other_person,
 		
 		can_not_order_while_you_can_borrow,
+		
+		
 	}
 
 	
