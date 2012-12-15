@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -115,7 +116,7 @@ public class UserResource {
 	/**
 	 * 更新用户信息
 	 * */
-	@PUT
+	@POST
 	@Path("updateuserinfo")
 	@Produces("application/json")
 	public Representation saveUserInfo(Representation entity) {
