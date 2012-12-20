@@ -30,7 +30,7 @@ import com.successfactors.library.rest.utils.RestCallInfo.RestCallErrorCode;
 import com.successfactors.library.rest.utils.RestCallInfo.RestCallStatus;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-@Path("order")
+@Path("recommend")
 public class RecommendResource {
 
 	private SLBookDao bookDao = SLBookDao.getDao();
@@ -45,7 +45,7 @@ public class RecommendResource {
 	@GET
 	@Path("getrecommendedbook/{bookISBN}")
 	@Produces("application/json")
-	public Representation getRecommendedBook(String bookISBN) {
+	public Representation getRecommendedBook(@PathParam("bookISBN") String bookISBN) {
 		SLRecommendedBook book = dao.queryByISBN(bookISBN);
 		if (book == null) {
 			HashMap returnInfo = new HashMap();

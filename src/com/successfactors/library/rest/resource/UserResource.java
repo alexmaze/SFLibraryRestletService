@@ -33,7 +33,7 @@ public class UserResource {
 	/**
 	 * 用户登录，成功返回SessionKey
 	 * */
-	@PUT
+	@POST
 	@Path("login")
 	@Produces("application/json")
 	public Representation login(Representation entity) {
