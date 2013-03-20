@@ -277,18 +277,18 @@ public class BorrowResource {
 	@Path("getborrowlistpage/{statusType}/{userEmail}/{itemsPerPage}/{pageNum}")
 	@Produces("application/json")
 	public Representation getBorrowList(
-			@PathParam("statusType") BorrowStatusType statusType,
+//			@PathParam("statusType") BorrowStatusType statusType,
+			@PathParam("statusType") String statusType,
 			@PathParam("userEmail") String userEmail,
 			@PathParam("itemsPerPage") int itemsPerPage,
 			@PathParam("pageNum") int pageNum) {
 		
 		BorrowPage page = null;
-		
 		List<SLBorrow> result = null;
 		if (userEmail == null) {
-			page = borrowDao.searchBorrowList(statusType, itemsPerPage, pageNum);
+			page = borrowDao.searchBorrowList(BorrowStatusType.parse(statusType), itemsPerPage, pageNum);
 		} else {
-			page = borrowDao.searchBorrowList(statusType, userEmail,
+			page = borrowDao.searchBorrowList(BorrowStatusType.parse(statusType), userEmail,
 					itemsPerPage, pageNum);
 		}
 		result = page.getTheBorrows();

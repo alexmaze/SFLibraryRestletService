@@ -159,14 +159,14 @@ public class BookResource {
 	@GET
 	@Path("searchbooklistpage/{searchType}/{searchValue}/{itemsPerPage}/{pageNum}")
 	@Produces("application/json")
-	public Representation searchBookList(@PathParam("searchType") BookSearchType searchType,
+	public Representation searchBookList(@PathParam("searchType") String searchType,
 			@PathParam("searchValue") String searchValue, @PathParam("itemsPerPage") int itemsPerPage, @PathParam("pageNum") int pageNum) {
 		ArrayList<SLBook> listBooks = (ArrayList<SLBook>) dao
-				.queryByCustomField(searchType, searchValue, itemsPerPage,
+				.queryByCustomField(BookSearchType.parse(searchType), searchValue, itemsPerPage,
 						pageNum);
 		BookPage bookPage = new BookPage(itemsPerPage, pageNum);
 		bookPage.setTheBooks(listBooks);
-		long totalNum = dao.getCountByCustomField(searchType, searchValue);
+		long totalNum = dao.getCountByCustomField(BookSearchType.parse(searchType), searchValue);
 		if (totalNum % itemsPerPage == 0) {
 			bookPage.setTotalPageNum((int) totalNum / itemsPerPage);
 		} else {

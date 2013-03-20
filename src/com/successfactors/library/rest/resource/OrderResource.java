@@ -233,12 +233,12 @@ public class OrderResource {
 	@Path("getorderlistpage/{statusType}/{userEmail}/{itemsPerPage}/{pageNum}")
 	@Produces("application/json")
 	public Representation getOrderList(
-			@PathParam("statusType") OrderStatusType statusType,
+			@PathParam("statusType") String statusType,
 			@PathParam("userEmail") String userEmail,
 			@PathParam("itemsPerPage") int itemsPerPage,
 			@PathParam("pageNum") int pageNum) {
 		
-		return searchOrderList("status", OrderStatusType.toString(statusType),
+		return searchOrderList("status", statusType,
 				"userEmail", userEmail, itemsPerPage, pageNum, false);
 		
 	}

@@ -1,6 +1,8 @@
 package com.successfactors.library.rest.model;
 
 import java.io.Serializable;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -141,12 +143,15 @@ public class SLRecommendedBook implements Serializable {
 	
 	@Transient
 	public void parseMap(Map mapInfo) {
+		try {
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		
 		
 		this.setBookName(mapInfo.containsKey("bookName")?(String)mapInfo.get("bookName"):"");
 		this.setBookAuthor(mapInfo.containsKey("bookAuthor")?(String)mapInfo.get("bookAuthor"):"");
 		this.setBookISBN(mapInfo.containsKey("bookISBN")?(String)mapInfo.get("bookISBN"):"");
 		this.setBookPublisher(mapInfo.containsKey("bookPublisher")?(String)mapInfo.get("bookPublisher"):"");
-		this.setBookPublishDate(mapInfo.containsKey("bookPublishDate")?(Date)mapInfo.get("bookPublishDate"):null);
+		this.setBookPublishDate(mapInfo.containsKey("bookPublishDate")?sdf.parse((String)mapInfo.get("bookPublishDate")):null);
 		this.setBookLanguage(mapInfo.containsKey("bookLanguage")?(String)mapInfo.get("bookLanguage"):"");
 		this.setBookPrice(mapInfo.containsKey("bookPrice")?(Double)mapInfo.get("bookPrice"):0.0);
 		this.setBookClass(mapInfo.containsKey("bookClass")?(String)mapInfo.get("bookClass"):"");
@@ -157,10 +162,12 @@ public class SLRecommendedBook implements Serializable {
 		this.setRecUserName(mapInfo.containsKey("recUserName")?(String)mapInfo.get("recUserName"):"");
 		this.setRecUserEmail(mapInfo.containsKey("recUserEmail")?(String)mapInfo.get("recUserEmail"):"");
 		this.setRecStatus(mapInfo.containsKey("recStatus")?(String)mapInfo.get("recStatus"):"");
-		this.setRecDate(mapInfo.containsKey("recDate")?(Date)mapInfo.get("recDate"):null);
-		this.setRecRate(mapInfo.containsKey("recRate")?(Integer)mapInfo.get("recRate"):0);
+		this.setRecDate(mapInfo.containsKey("recDate")?sdf.parse((String)mapInfo.get("recDate")):null);
+		this.setRecRate(mapInfo.containsKey("recRate")?Integer.valueOf(((Long)mapInfo.get("recRate")).intValue()):0);
 		this.setCountPrice(mapInfo.containsKey("countPrice")?(Double)mapInfo.get("countPrice"):0.0);
-		
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	@Transient
